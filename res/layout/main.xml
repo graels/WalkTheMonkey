@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    >
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textSize="@dimen/label_text_size"
+        android:textStyle="bold"
+        android:layout_marginLeft="@dimen/label_margin"
+        android:text="@string/problem_title"
+        />
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="@dimen/statement_margin"
+        android:text="@string/problem_statement"
+        />
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textSize="@dimen/label_text_size"
+        android:textStyle="bold"
+        android:layout_marginLeft="@dimen/label_margin"
+        android:text="@string/solution_title"
+        />
+    <TextView
+        android:id="@+id/solution_view"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="@dimen/statement_margin"
+        android:visibility="gone"
+        />
+    <Button
+        android:id="@+id/solve_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="@dimen/statement_margin"
+        android:text="@string/solution_button_label"
+        android:padding="1mm"
+        />
+</LinearLayout>
+
