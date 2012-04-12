@@ -8,8 +8,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  *  PROBLEM:
@@ -36,8 +36,9 @@ import java.util.Map;
 public class Main extends Activity implements View.OnClickListener
 {
 
-    private static final int PROBLEM_SUM = 25;
-    private static final Boolean OPTIMIZE = true;
+    private static final int PROBLEM_SUM = 25;      // 1033841
+    private static final Boolean OPTIMIZE = true;   // Only parse one quadrant
+    private static final int THRESHOLD = 99;        // TODO - works for 25, should compute based on maxSum.
 
     /*
      * Segment the computation into quadrants to minimize memory requirements.  
@@ -66,7 +67,7 @@ public class Main extends Activity implements View.OnClickListener
 
     @Override
     public void onClick(View v) {
-        new countPoints().execute(PROBLEM_SUM);
+        new CountPoints().execute(PROBLEM_SUM);
         mDialog = ProgressDialog.show(this, null, getString(R.string.solution_progress_label));
         v.setVisibility(View.GONE);
     }
@@ -80,7 +81,7 @@ public class Main extends Activity implements View.OnClickListener
      *  yIncrement - y step offset (positive or negative)
      *
      */
-    private final class Quadrant {
+    private static final class Quadrant {
         
         private final String name;
         private final int xStart;
@@ -88,7 +89,7 @@ public class Main extends Activity implements View.OnClickListener
         private final int xIncrement;
         private final int yIncrement;
 
-        public Quadrant(String name, int xStart, int yStart, int xIncrement, int yIncrement) {
+        Quadrant(String name, int xStart, int yStart, int xIncrement, int yIncrement) {
             this.name = name;
             this.xStart = xStart;
             this.yStart = yStart;
@@ -96,23 +97,22 @@ public class Main extends Activity implements View.OnClickListener
             this.yIncrement = yIncrement;
         }
         
-        public int getStartX()
+        int getStartX()
         {
             return xStart;
         }
 
-        public int getStartY()
+        int getStartY()
         {
             return yStart;
-
         }
 
-        public int getIncrementX()
+        int getIncrementX()
         {
             return xIncrement;
         }
 
-        public int getIncrementY()
+        int getIncrementY()
         {
             return yIncrement;
         }
@@ -146,46 +146,55 @@ public class Main extends Activity implements View.OnClickListener
     /**
      * Compute the sum the digits in the supplied coordinate
      *
-     * @param x -   the x coordinate value to sum
-     * @param y -   the y coordinate value to sum
+     * @param point - contains the x and y coordinate value to sum
      * @return - integer sum of digits
      */
-    private static int sum(int x, int y) {
-        return sum(x) + sum(y);
+    private static int sumPoint(Point point) {
+        checkPoint(point);
+        
+        return sum(point.x) + sum(point.y);
+    }
+    
+    private static void checkPoint(Point point) {
+        assert point != null;
+    }
+    private static void checkSet(Set set) {
+        assert set != null;
     }
     
     /**
-     * Determine if the point described by (x,y) is unique (not currently in the map) and connected to
-     * an adjoining point in the map in the xOffset or yOffset direction.  Note that if the point is
+     * Determine if the point is unique (not currently in the map) and connected to an adjoining
+     * point in the map in the xOffset or yOffset direction.  Note that if the point is
      * within 1 unit of an axis, it is considered to be connected to the adjacent point on the axis.
      *
-     * @param x - x position of point to analyze
-     * @param y - y position of point to analyze
+     * @param point - x and y position of point to analyze
      * @param xOffset - horrizontal direction to connection
      * @param yOffset - vertical direction to connection
-     * @param map - map of connected points
+     * @param set - collection of connected points
      * @return - true if the point is not already in the map and it is connected in the
      *           horrizontal or vertical to another point in the map, of false
      */
-    private static boolean pointConnected(int x, int y, int xOffset, int yOffset, Map<Point, Boolean> map) {
+    private static boolean pointConnected(Point point, int xOffset, int yOffset, Set<Point> set) {
         boolean connected = false;
-         
-        if (map != null) {
-            if (!map.containsKey(new Point(x, y))) {
-                if (xOffset != 0 && map.containsKey(new Point(x - xOffset, y))) {
-                    connected = true; // connect to the point in the map
-                }
-                else if (yOffset != 0 && map.containsKey(new Point(x, y - yOffset))) {
-                    connected = true; // connect to the point in the map
-                }
-                else if (x - xOffset == 0 && !map.containsKey(new Point(0, y))) {
-                    connected = true; // connect to the x axis
-                }
-                else if (y - yOffset == 0 && !map.containsKey(new Point(x, 0))) {
-                    connected = true; // connect to the y axis
-                }
+        
+        checkPoint(point);
+        checkSet(set);
+
+        if (!set.contains(point)) {
+            if (xOffset != 0 && set.contains(new Point(point.x - xOffset, point.y))) {
+                connected = true; // connect to the point in the map
             }
-        }    
+            else if (yOffset != 0 && set.contains(new Point(point.x, point.y - yOffset))) {
+                connected = true; // connect to the point in the map
+            }
+            else if (point.x - xOffset == 0 && !set.contains(new Point(0, point.y))) {
+                connected = true; // connect to the x axis
+            }
+            else if (point.y - yOffset == 0 && !set.contains(new Point(point.x, 0))) {
+                connected = true; // connect to the y axis
+            }
+        }
+
         return connected;
     }
 
@@ -200,35 +209,30 @@ public class Main extends Activity implements View.OnClickListener
      *          yIncrement - y step offset (positive or negative)
      * @param maxPoint - absolute maximum (x and y) point value
      * @param maxSum - absolute maximum sum of the digits in an x and y coordinate
-     * @param map - map of existing points in the quadrant
+     * @param set - set of existing points in the quadrant
      * @return - number of points in the set that sum to less than or equal to maxSum
      */
-    private static int mapPoints(Quadrant quadrant, int maxSum, int maxPoint, Map<Point, Boolean> map) {
-        int validCount;
+    private static int mapPoints(Quadrant quadrant, int maxSum, int maxPoint, Set<Point> set) {
         int invalidCount = 0;
-        int total = 0;
-        int skipThreshold = 99; // TODO - works for 25, should compute based on maxSum.
+
+        checkSet(set);
 
         for (int x = quadrant.getStartX(); Math.abs(x) <= maxPoint; x += quadrant.getIncrementX()) {
-            validCount = 0;
             for (int y = quadrant.getStartY(); Math.abs(y) <= maxPoint; y += quadrant.getIncrementY()) {
-                if (sum(x, y) <= maxSum) {
-                    if (pointConnected(x, y, quadrant.getIncrementX(), quadrant.getIncrementY(), map)) {
-                        map.put(new Point(x, y), true);
-                        validCount++;
+                Point point = new Point(x,y);
+                if (sumPoint(point) <= maxSum) {
+                    if (pointConnected(point, quadrant.getIncrementX(), quadrant.getIncrementY(), set)) {
+                        set.add(point);
                         invalidCount = 0;
                     }
                 }
                 else {
-                    invalidCount++;
-                    if (invalidCount > skipThreshold) break; // optimization
+                    if (++invalidCount > THRESHOLD) break; // optimization
                 }
             }
-            
-            total += validCount;
         }
 
-        return total;
+        return set.size();
     }
     
     /**
@@ -258,24 +262,24 @@ public class Main extends Activity implements View.OnClickListener
     /**
      * Offload to a background task
      */
-    private class countPoints extends AsyncTask<Integer, Void, Void> {
+    private class CountPoints extends AsyncTask<Integer, Void, Void> {
         
         @Override
         protected Void doInBackground(Integer... sums) {
-            Map<Point, Boolean> map = new HashMap<Point, Boolean>();
+            Set<Point> set = new HashSet<Point>();
             
             for (Integer maxSum: sums) {
                 mPointTotal = 1;  // DON'T FORGET TO INCLUDE THE ORIGIN TO THE FINAL COUNT.
                 int maxPoint = pointLimit(maxSum);
 
                 if (OPTIMIZE) {
-                    map.clear();
-                    mPointTotal += mapPoints(quadrants[0], maxSum, maxPoint, map) * 4;
+                    set.clear();
+                    mPointTotal += mapPoints(quadrants[0], maxSum, maxPoint, set) * 4;
                 }
                 else {
                     for (Quadrant quadrant : quadrants) {
-                        map.clear();
-                        mPointTotal += mapPoints(quadrant, maxSum, maxPoint, map);
+                        set.clear();
+                        mPointTotal += mapPoints(quadrant, maxSum, maxPoint, set);
                     }
                 }
             }
